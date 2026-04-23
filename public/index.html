@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IronForge Gym — Management System</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0a; --surface:#111; --card:#161616; --border:#222;
+  --accent:#e8ff00; --accent2:#ff4d00; --text:#f0f0f0; --muted:#666;
+  --success:#00e676; --danger:#ff1744; --warning:#ffab00;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow-x:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:240px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:100}
+.logo{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.logo-text{font-family:'Bebas Neue',cursive;font-size:28px;letter-spacing:2px;color:var(--accent)}
+.logo-sub{font-size:10px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-top:2px}
+.nav{flex:1;padding:16px 0;overflow-y:auto}
+.nav-section{padding:0 16px;margin-bottom:4px}
+.nav-label{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);padding:12px 8px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:13.5px;font-weight:500;color:#888;transition:all .15s;user-select:none}
+.nav-item:hover{background:rgba(232,255,0,.05);color:var(--text)}
+.nav-item.active{background:rgba(232,255,0,.1);color:var(--accent);border-left:2px solid var(--accent)}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--accent2);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;font-family:'Space Mono',monospace}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+/* ── MAIN ── */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.page-title{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:2px}
+.topbar-actions{display:flex;gap:12px;align-items:center}
+.search-box{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 14px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;width:220px;outline:none;transition:border .2s}
+.search-box:focus{border-color:var(--accent)}
+.search-box::placeholder{color:var(--muted)}
+.content{padding:28px 32px;flex:1}
+
+/* ── PANELS ── */
+.panel{display:none}
+.panel.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;overflow:hidden;transition:border .2s}
+.stat-card:hover{border-color:#333}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent)}
+.stat-card:nth-child(2)::before{background:var(--accent2)}
+.stat-card:nth-child(3)::before{background:var(--success)}
+.stat-card:nth-child(4)::before{background:#8b5cf6}
+.stat-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.stat-value{font-family:'Space Mono',monospace;font-size:32px;font-weight:700;line-height:1}
+.stat-change{margin-top:8px;font-size:11px;color:var(--success)}
+.stat-icon{position:absolute;right:16px;top:18px;font-size:28px;opacity:.15}
+.progress-bar{height:4px;background:#1a1a1a;border-radius:4px;overflow:hidden;margin-top:10px}
+.progress-fill{height:100%;border-radius:4px;background:var(--accent);transition:width .5s}
+
+/* ── SECTION ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-family:'Bebas Neue',cursive;font-size:18px;letter-spacing:1.5px}
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:24px}
+table{width:100%;border-collapse:collapse}
+thead th{background:rgba(232,255,0,.04);padding:12px 16px;text-align:left;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);font-weight:500}
+tbody tr{border-bottom:1px solid #1a1a1a;transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody td{padding:13px 16px;font-size:13.5px;color:#ccc}
+
+/* ── AVATAR ── */
+.avatar{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;margin-right:10px;flex-shrink:0}
+.name-cell{display:flex;align-items:center}
+.name-text{font-weight:500;color:var(--text)}
+.name-sub{font-size:11px;color:var(--muted);margin-top:1px}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.badge-active{background:rgba(0,230,118,.12);color:var(--success)}
+.badge-inactive{background:rgba(255,23,68,.12);color:var(--danger)}
+.badge-pending{background:rgba(255,171,0,.12);color:var(--warning)}
+.badge-on.leave{background:rgba(255,171,0,.12);color:var(--warning)}
+.badge-paid{background:rgba(0,230,118,.12);color:var(--success)}
+.badge-unpaid,.badge-Pending{background:rgba(255,23,68,.12);color:var(--danger)}
+.badge-cardio{background:rgba(255,77,0,.12);color:var(--accent2)}
+.badge-strength{background:rgba(139,92,246,.12);color:#a78bfa}
+.badge-functional{background:rgba(232,255,0,.12);color:var(--accent)}
+.badge-good{background:rgba(0,230,118,.12);color:var(--success)}
+.badge-maintenance{background:rgba(255,171,0,.12);color:var(--warning)}
+.badge-broken{background:rgba(255,23,68,.12);color:var(--danger)}
+
+/* ── BTNS ── */
+.btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .15s;letter-spacing:.3px}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{background:#d4e800;transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btn-danger-sm{background:rgba(255,23,68,.1);border:1px solid var(--danger);color:var(--danger);padding:4px 10px;font-size:11px;border-radius:5px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.btn-danger-sm:hover{background:rgba(255,23,68,.25)}
+
+/* ── FORMS ── */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px;margin-bottom:24px}
+.form-title{font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1.5px;margin-bottom:18px;color:var(--accent)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group.full{grid-column:1/-1}
+label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:500}
+input,select,textarea{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:13.5px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;transition:border .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select option{background:#1a1a1a}
+
+/* ── INNER TABS ── */
+.inner-tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px;width:fit-content}
+.inner-tab{padding:7px 16px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .15s;letter-spacing:.5px;text-transform:uppercase}
+.inner-tab.active{background:var(--accent);color:#000}
+.inner-tab:not(.active):hover{color:var(--text)}
+
+/* ── EQUIPMENT CARDS ── */
+.instruments-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.instrument-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;transition:all .2s;position:relative;overflow:hidden}
+.instrument-card:hover{border-color:#333;transform:translateY(-2px)}
+.instrument-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
+.instrument-card.good::after{background:var(--success)}
+.instrument-card.maintenance::after{background:var(--warning)}
+.instrument-card.broken::after{background:var(--danger)}
+.instrument-name{font-weight:600;font-size:15px;color:var(--text);margin-bottom:4px}
+.instrument-cat{font-size:11px;color:var(--muted);margin-bottom:14px}
+.instrument-meta{display:flex;justify-content:space-between;align-items:flex-end}
+.instrument-count{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--accent)}
+.instrument-count span{font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400}
+.instrument-icon{font-size:28px;opacity:.25}
+
+/* ── PAYMENT LAYOUT ── */
+.payment-row{display:grid;grid-template-columns:3fr 1fr;gap:16px;margin-bottom:16px}
+.revenue-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;display:flex;align-items:center;justify-content:space-between}
+.revenue-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.revenue-value{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--success)}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--success);color:#000;padding:12px 20px;border-radius:8px;font-weight:600;font-size:13px;z-index:300;transform:translateY(80px);opacity:0;transition:all .3s ease}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* ── LOADER ── */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid #333;border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-row td{text-align:center;padding:28px;color:var(--muted);font-size:13px}
+
+/* ── MINI CHART ── */
+.mini-chart{display:flex;align-items:flex-end;gap:4px;height:50px;margin-top:8px}
+.mini-bar{flex:1;background:rgba(232,255,0,.15);border-radius:3px 3px 0 0;transition:background .2s}
+.mini-bar.highlight{background:var(--accent)}
+
+.empty-state{text-align:center;padding:48px;color:var(--muted);font-size:13px}
+.empty-state .e-icon{font-size:40px;margin-bottom:12px;opacity:.3}
+.action-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:4px;color:var(--muted);transition:color .15s;border-radius:4px}
+.action-btn:hover{color:var(--text);background:rgba(255,255,255,.05)}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+
+/* ── CONN BANNER ── */
+.conn-banner{background:rgba(255,171,0,.1);border:1px solid var(--warning);color:var(--warning);padding:10px 16px;border-radius:8px;font-size:12px;margin-bottom:16px;display:none}
+.conn-banner.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-text">IronForge</div>
+    <div class="logo-sub">Gym Management</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" onclick="goTo('dashboard',this)"><span class="icon">⚡</span> Dashboard</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Management</div>
+      <div class="nav-item" onclick="goTo('members',this)"><span class="icon">👤</span> Members<span class="nav-badge" id="nb-members">0</span></div>
+      <div class="nav-item" onclick="goTo('trainers',this)"><span class="icon">💪</span> Trainers<span class="nav-badge" id="nb-trainers">0</span></div>
+      <div class="nav-item" onclick="goTo('payments',this)"><span class="icon">💰</span> Payments</div>
+      <div class="nav-item" onclick="goTo('equipment',this)"><span class="icon">🏋️</span> Equipment<span class="nav-badge" id="nb-equip">0</span></div>
+    </div>
+  </nav>
+  <div class="sidebar-footer">IronForge v1.0 &nbsp;·&nbsp; Admin</div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="page-title">DASHBOARD</div>
+    <div class="topbar-actions">
+      <input class="search-box" type="text" placeholder="🔍  Search..." id="global-search" oninput="onSearch(this.value)">
+
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- API warning -->
+    <div class="conn-banner" id="conn-banner">
+      ⚠️ Cannot reach the backend API at <strong id="api-url-label"></strong>. Make sure <code>server.js</code> is running.
+    </div>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">👤</div><div class="stat-label">Total Members</div><div class="stat-value" id="d-members">—</div><div class="stat-change" id="d-active-m">—</div><div class="progress-bar"><div class="progress-fill" id="prog-m" style="width:0%"></div></div></div>
+        <div class="stat-card"><div class="stat-icon">💪</div><div class="stat-label">Trainers</div><div class="stat-value" id="d-trainers">—</div><div class="stat-change" style="color:var(--accent2)" id="d-active-t">—</div></div>
+        <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Revenue (Paid)</div><div class="stat-value" id="d-revenue">—</div><div class="stat-change" id="d-pending-rev">—</div></div>
+        <div class="stat-card"><div class="stat-icon">🏋️</div><div class="stat-label">Equipment Units</div><div class="stat-value" id="d-equip">—</div><div class="stat-change" style="color:#a78bfa" id="d-maint">—</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="section-header"><div class="section-title">RECENT MEMBERS</div></div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Plan</th><th>Status</th></tr></thead><tbody id="d-member-list"><tr class="loading-row"><td colspan="3"><span class="loader"></span>Loading…</td></tr></tbody></table></div>
+        </div>
+        <div>
+          <div class="section-header"><div class="section-title">TRAINER ROSTER</div></div>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Speciality</th><th>Status</th></tr></thead><tbody id="d-trainer-list"><tr class="loading-row"><td colspan="3"><span class="loader"></span>Loading…</td></tr></tbody></table></div>
+        </div>
+      </div>
+      <div class="section-header" style="margin-top:8px"><div class="section-title">MONTHLY REVENUE TREND</div></div>
+      <div class="table-wrap" style="padding:20px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">
+          <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
+        </div>
+        <div class="mini-chart" id="rev-chart"></div>
+      </div>
+    </div>
+
+    <!-- ── MEMBERS ── -->
+    <div class="panel" id="panel-members">
+      <div class="form-card" id="form-member">
+        <div class="form-title">➕ ADD NEW MEMBER</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Full Name *</label><input id="m-name" placeholder="Arjun Sharma"></div>
+          <div class="form-group"><label>Phone</label><input id="m-phone" placeholder="+91 9876543210"></div>
+          <div class="form-group"><label>Email</label><input id="m-email" type="email" placeholder="email@example.com"></div>
+          <div class="form-group"><label>Membership Plan</label>
+            <select id="m-plan"><option value="Monthly">Monthly — ₹1,500</option><option value="Quarterly">Quarterly — ₹4,000</option><option value="Half-Yearly">Half-Yearly — ₹7,000</option><option value="Annual">Annual — ₹12,000</option></select>
+          </div>
+          <div class="form-group"><label>Joining Date</label><input id="m-date" type="date"></div>
+          <div class="form-group"><label>Assigned Trainer</label><select id="m-trainer"><option value="">— None —</option></select></div>
+          <div class="form-group"><label>Status</label><select id="m-status"><option>Active</option><option>Inactive</option></select></div>
+        </div>
+        <div style="margin-top:18px;display:flex;gap:10px">
+          <button type="button" class="btn btn-primary" onclick="saveMember()">Save Member</button>
+          <button type="button" class="btn btn-ghost" onclick="clearMemberForm()">Clear</button>
+        </div>
+      </div>
+      <div class="section-header">
+        <div class="section-title">MEMBER RECORDS</div>
+        <div class="inner-tabs">
+          <div class="inner-tab active" onclick="loadMembers('All',this)">All</div>
+          <div class="inner-tab" onclick="loadMembers('Active',this)">Active</div>
+          <div class="inner-tab" onclick="loadMembers('Inactive',this)">Inactive</div>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Member</th><th>Phone</th><th>Plan</th><th>Trainer</th><th>Joined</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="member-tbody"><tr class="loading-row"><td colspan="7"><span class="loader"></span>Loading…</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── TRAINERS ── -->
+    <div class="panel" id="panel-trainers">
+      <div class="form-card" id="form-trainer">
+        <div class="form-title">➕ ADD NEW TRAINER</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Full Name *</label><input id="t-name" placeholder="Vikram Nair"></div>
+          <div class="form-group"><label>Phone</label><input id="t-phone" placeholder="+91 9900112233"></div>
+          <div class="form-group"><label>Email</label><input id="t-email" type="email" placeholder="trainer@gym.in"></div>
+          <div class="form-group"><label>Speciality</label>
+            <select id="t-spec"><option>Strength</option><option>Cardio</option><option>Functional</option><option>Yoga</option><option>CrossFit</option><option>Nutrition</option></select>
+          </div>
+          <div class="form-group"><label>Experience (Years)</label><input id="t-exp" type="number" placeholder="5" min="0"></div>
+          <div class="form-group"><label>Salary (₹/month)</label><input id="t-salary" type="number" placeholder="25000"></div>
+          <div class="form-group"><label>Joining Date</label><input id="t-date" type="date"></div>
+          <div class="form-group"><label>Status</label><select id="t-status"><option>Active</option><option>On Leave</option><option>Inactive</option></select></div>
+        </div>
+        <div style="margin-top:18px;display:flex;gap:10px">
+          <button type="button" class="btn btn-primary" onclick="saveTrainer()">Save Trainer</button>
+          <button type="button" class="btn btn-ghost" onclick="clearTrainerForm()">Clear</button>
+        </div>
+      </div>
+      <div class="section-header"><div class="section-title">TRAINER RECORDS</div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Trainer</th><th>Phone</th><th>Speciality</th><th>Experience</th><th>Salary</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="trainer-tbody"><tr class="loading-row"><td colspan="7"><span class="loader"></span>Loading…</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── PAYMENTS ── -->
+    <div class="panel" id="panel-payments">
+      <div class="payment-row">
+        <div class="form-card" id="form-payment" style="margin-bottom:0">
+          <div class="form-title">💳 RECORD PAYMENT</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Member *</label><select id="p-member"><option value="">Select Member</option></select></div>
+            <div class="form-group"><label>Amount (₹) *</label><input id="p-amount" type="number" placeholder="1500"></div>
+            <div class="form-group"><label>Payment Date</label><input id="p-date" type="date"></div>
+            <div class="form-group"><label>Method</label><select id="p-method"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option></select></div>
+            <div class="form-group"><label>Plan</label><select id="p-plan"><option>Monthly</option><option>Quarterly</option><option>Half-Yearly</option><option>Annual</option></select></div>
+            <div class="form-group"><label>Status</label><select id="p-status"><option>Paid</option><option>Pending</option></select></div>
+          </div>
+          <div style="margin-top:18px"><button type="button" class="btn btn-primary" onclick="savePayment()">Record Payment</button></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="revenue-card" style="flex:1"><div><div class="revenue-label">Total Collected</div><div class="revenue-value" id="total-paid">₹—</div></div><span style="font-size:32px">💰</span></div>
+          <div class="revenue-card" style="flex:1"><div><div class="revenue-label">Pending Amount</div><div style="font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--warning)" id="total-pending">₹—</div></div><span style="font-size:32px">⏳</span></div>
+        </div>
+      </div>
+      <div class="section-header" style="margin-top:8px">
+        <div class="section-title">PAYMENT HISTORY</div>
+        <div class="inner-tabs">
+          <div class="inner-tab active" onclick="loadPayments('All',this)">All</div>
+          <div class="inner-tab" onclick="loadPayments('Paid',this)">Paid</div>
+          <div class="inner-tab" onclick="loadPayments('Pending',this)">Pending</div>
+        </div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Member</th><th>Date</th><th>Plan</th><th>Method</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="payment-tbody"><tr class="loading-row"><td colspan="7"><span class="loader"></span>Loading…</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <!-- ── EQUIPMENT ── -->
+    <div class="panel" id="panel-equipment">
+      <div class="form-card" id="form-equipment">
+        <div class="form-title">🏋️ ADD EQUIPMENT</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Equipment Name *</label><input id="e-name" placeholder="Treadmill"></div>
+          <div class="form-group"><label>Category</label><select id="e-cat"><option>Cardio</option><option>Strength</option><option>Functional</option><option>Free Weights</option><option>Accessories</option></select></div>
+          <div class="form-group"><label>Quantity</label><input id="e-qty" type="number" value="1" min="1"></div>
+          <div class="form-group"><label>Purchase Date</label><input id="e-date" type="date"></div>
+          <div class="form-group"><label>Cost (₹)</label><input id="e-cost" type="number" placeholder="50000"></div>
+          <div class="form-group"><label>Condition</label><select id="e-cond"><option value="good">Good</option><option value="maintenance">Needs Maintenance</option><option value="broken">Out of Order</option></select></div>
+          <div class="form-group full"><label>Notes</label><textarea id="e-notes" rows="2" placeholder="Optional notes…"></textarea></div>
+        </div>
+        <div style="margin-top:18px;display:flex;gap:10px">
+          <button type="button" class="btn btn-primary" onclick="saveEquipment()">Add Equipment</button>
+          <button type="button" class="btn btn-ghost" onclick="clearEquipForm()">Clear</button>
+        </div>
+      </div>
+      <div class="section-header">
+        <div class="section-title">EQUIPMENT INVENTORY</div>
+        <div id="equip-total" style="font-family:'Space Mono',monospace;color:var(--accent);font-size:14px">0 units</div>
+      </div>
+      <div class="instruments-grid" id="equip-cards">
+        <div style="grid-column:1/-1"><div class="empty-state"><div class="e-icon">🏋️</div><div>Loading equipment…</div></div></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONFIG — change API_BASE to match your server
+// ═══════════════════════════════════════════════════
+const API_BASE = 'http://localhost:3000/api';
+
+const COLORS = ['#e8ff00','#ff4d00','#00e676','#a78bfa','#38bdf8','#fb923c','#f472b6'];
+const CAT_ICON = {Cardio:'🏃',Strength:'🏋️',Functional:'⚡','Free Weights':'🔩',Accessories:'🎽'};
+
+let currentPaymentFilter = 'All';
+let currentMemberFilter  = 'All';
+
+// ── Toast ──────────────────────────────────────────
+function toast(msg, color = 'var(--success)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = color;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── API Helper ─────────────────────────────────────
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(API_BASE + path, opts);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    return await res.json();
+  } catch (e) {
+    if (e.message === 'Failed to fetch') {
+      document.getElementById('conn-banner').classList.add('show');
+      document.getElementById('api-url-label').textContent = API_BASE;
+    }
+    throw e;
+  }
+}
+
+// ── Nav ────────────────────────────────────────────
+function goTo(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('page-title').textContent = id.toUpperCase();
+  document.getElementById('global-search').value = '';
+
+  if (id === 'dashboard') loadDashboard();
+  if (id === 'members')   { loadMembers('All'); loadTrainerDropdown(); }
+  if (id === 'trainers')  loadTrainers();
+  if (id === 'payments')  { loadPayments('All'); loadMemberDropdown(); loadPaymentSummary(); }
+  if (id === 'equipment') loadEquipment();
+}
+
+function scrollToForm() {
+  const active = document.querySelector('.panel.active').id.replace('panel-','');
+  const el = document.getElementById('form-' + active);
+  if (el) el.scrollIntoView({ behavior:'smooth' });
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+function inr(n)  { return '₹' + Number(n||0).toLocaleString('en-IN'); }
+function initColor(name, i) { return COLORS[(i||0) % COLORS.length]; }
+function statusBadge(s) {
+  const cls = s === 'Active' ? 'active' : s === 'Inactive' ? 'inactive' : s === 'On Leave' ? 'pending' : s === 'Paid' ? 'paid' : s === 'Pending' ? 'pending' : s.toLowerCase().replace(' ','-');
+  return `<span class="badge badge-${cls}">${s}</span>`;
+}
+
+// ── Search ─────────────────────────────────────────
+function onSearch(val) {
+  const active = document.querySelector('.panel.active').id.replace('panel-','');
+  if (active === 'members')  loadMembers(currentMemberFilter,  null, val);
+  if (active === 'trainers') loadTrainers(val);
+  if (active === 'payments') loadPayments(currentPaymentFilter, null, val);
+  if (active === 'equipment') loadEquipment(val);
+}
+
+// ═══════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════
+async function loadDashboard() {
+  try {
+    const data = await api('/dashboard');
+    const s = data.summary;
+
+    document.getElementById('d-members').textContent  = s.total_members;
+    document.getElementById('d-active-m').textContent = s.active_members + ' active';
+    document.getElementById('prog-m').style.width = s.total_members > 0 ? (s.active_members/s.total_members*100)+'%' : '0%';
+
+    document.getElementById('d-trainers').textContent  = s.total_trainers;
+    document.getElementById('d-active-t').textContent  = s.active_trainers + ' on shift';
+
+    document.getElementById('d-revenue').textContent     = inr(s.total_revenue);
+    document.getElementById('d-pending-rev').textContent = inr(s.pending_revenue) + ' pending';
+
+    document.getElementById('d-equip').textContent = s.total_equipment;
+    document.getElementById('d-maint').textContent  = s.equipment_maintenance + ' in maintenance';
+
+    // recent members
+    const dmb = document.getElementById('d-member-list');
+    dmb.innerHTML = data.recent_members.length
+      ? data.recent_members.map((m,i) => `<tr>
+          <td><div class="name-cell"><div class="avatar" style="background:${initColor(m.name,i)}20;color:${initColor(m.name,i)}">${m.name[0]}</div><div class="name-text">${m.name}</div></div></td>
+          <td>${m.plan}</td><td>${statusBadge(m.status)}</td></tr>`).join('')
+      : `<tr><td colspan="3"><div class="empty-state"><div class="e-icon">👤</div>No members yet</div></td></tr>`;
+
+    // recent trainers
+    const dtl = document.getElementById('d-trainer-list');
+    dtl.innerHTML = data.recent_trainers.length
+      ? data.recent_trainers.map((t,i) => `<tr>
+          <td><div class="name-cell"><div class="avatar" style="background:${initColor(t.name,i+3)}20;color:${initColor(t.name,i+3)}">${t.name[0]}</div><div class="name-text">${t.name}</div></div></td>
+          <td>${t.speciality}</td><td>${statusBadge(t.status)}</td></tr>`).join('')
+      : `<tr><td colspan="3"><div class="empty-state"><div class="e-icon">💪</div>No trainers yet</div></td></tr>`;
+
+    // chart
+    const chart = document.getElementById('rev-chart');
+    const monthly = Array(12).fill(0);
+    data.monthly_revenue.forEach(r => { monthly[r.month - 1] = Number(r.total); });
+    const max = Math.max(...monthly, 1);
+    chart.innerHTML = monthly.map((v, i) => {
+      const h = Math.round(v / max * 100);
+      const isNow = i === new Date().getMonth();
+      return `<div class="mini-bar${isNow?' highlight':''}" style="height:${Math.max(h,4)}%" title="${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][i]}: ${inr(v)}"></div>`;
+    }).join('');
+
+    document.getElementById('nb-members').textContent  = s.total_members;
+    document.getElementById('nb-trainers').textContent = s.total_trainers;
+    document.getElementById('nb-equip').textContent    = s.total_equipment;
+  } catch(e) { console.error(e); }
+}
+
+// ═══════════════════════════════════════════════════
+//  MEMBERS
+// ═══════════════════════════════════════════════════
+async function loadMembers(filter = 'All', tabEl = null, search = '') {
+  currentMemberFilter = filter;
+  if (tabEl) {
+    document.querySelectorAll('#panel-members .inner-tab').forEach(t => t.classList.remove('active'));
+    tabEl.classList.add('active');
+  }
+  const tbody = document.getElementById('member-tbody');
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="7"><span class="loader"></span>Loading…</td></tr>`;
+
+  try {
+    let qs = '';
+    if (filter !== 'All') qs += `status=${filter}&`;
+    if (search) qs += `search=${encodeURIComponent(search)}&`;
+    const data = await api('/members?' + qs);
+
+    document.getElementById('nb-members').textContent = data.length;
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="e-icon">👤</div>No members found.</div></td></tr>`; return; }
+
+    tbody.innerHTML = data.map((m,i) => `
+      <tr>
+        <td><div class="name-cell"><div class="avatar" style="background:${initColor(m.name,i)}20;color:${initColor(m.name,i)}">${m.name[0]}</div>
+            <div><div class="name-text">${m.name}</div><div class="name-sub">${m.email||''}</div></div></div></td>
+        <td>${m.phone||'—'}</td>
+        <td><span class="badge badge-functional">${m.plan}</span></td>
+        <td>${m.trainer_name||'—'}</td>
+        <td>${m.joined_on||'—'}</td>
+        <td>${statusBadge(m.status)}</td>
+        <td><button type="button" class="btn-danger-sm" onclick="deleteMember(${m.id})">🗑 Delete</button></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:20px">Error: ${e.message}</td></tr>`; }
+}
+
+async function saveMember() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { toast('❌ Name is required', 'var(--danger)'); return; }
+  const btn = document.querySelector('#form-member .btn-primary');
+  btn.disabled = true;
+  try {
+    await api('/members', 'POST', {
+      name, phone: v('m-phone'), email: v('m-email'),
+      plan: v('m-plan'), trainer_id: v('m-trainer')||null,
+      status: v('m-status'), joined_on: v('m-date') || today()
+    });
+    toast('✅ Member saved!');
+    clearMemberForm();
+    loadMembers(currentMemberFilter);
+  } catch(e) { toast('❌ ' + e.message, 'var(--danger)'); }
+  finally { btn.disabled = false; }
+}
+
+async function deleteMember(id) {
+  if (!confirm('Delete this member?')) return;
+  try { await api('/members/'+id,'DELETE'); toast('🗑 Member deleted','#555'); loadMembers(currentMemberFilter); }
+  catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+}
+
+function clearMemberForm() {
+  ['m-name','m-phone','m-email'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('m-date').value = today();
+}
+
+async function loadTrainerDropdown() {
+  const sel = document.getElementById('m-trainer');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— None —</option>';
+  try {
+    const trainers = await api('/trainers?status=Active');
+    trainers.forEach(t => { const o = new Option(t.name, t.id); sel.appendChild(o); });
+    sel.value = cur;
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════
+//  TRAINERS
+// ═══════════════════════════════════════════════════
+async function loadTrainers(search = '') {
+  const tbody = document.getElementById('trainer-tbody');
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="7"><span class="loader"></span>Loading…</td></tr>`;
+  try {
+    const qs = search ? `search=${encodeURIComponent(search)}` : '';
+    const data = await api('/trainers?' + qs);
+    document.getElementById('nb-trainers').textContent = data.length;
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="e-icon">💪</div>No trainers found.</div></td></tr>`; return; }
+    tbody.innerHTML = data.map((t,i) => `
+      <tr>
+        <td><div class="name-cell"><div class="avatar" style="background:${initColor(t.name,i+3)}20;color:${initColor(t.name,i+3)}">${t.name[0]}</div>
+            <div><div class="name-text">${t.name}</div><div class="name-sub">${t.email||''}</div></div></div></td>
+        <td>${t.phone||'—'}</td>
+        <td><span class="badge badge-${t.speciality==='Cardio'?'cardio':t.speciality==='Strength'?'strength':'functional'}">${t.speciality}</span></td>
+        <td>${t.experience ? t.experience+' yrs' : '—'}</td>
+        <td>${t.salary ? inr(t.salary) : '—'}</td>
+        <td>${statusBadge(t.status)}</td>
+        <td><button type="button" class="btn-danger-sm" onclick="deleteTrainer(${t.id})">🗑 Delete</button></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:20px">Error: ${e.message}</td></tr>`; }
+}
+
+async function saveTrainer() {
+  const name = document.getElementById('t-name').value.trim();
+  if (!name) { toast('❌ Name is required','var(--danger)'); return; }
+  const btn = document.querySelector('#form-trainer .btn-primary');
+  btn.disabled = true;
+  try {
+    await api('/trainers','POST',{
+      name, phone: v('t-phone'), email: v('t-email'),
+      speciality: v('t-spec'), experience: v('t-exp'),
+      salary: v('t-salary'), status: v('t-status'),
+      joined_on: v('t-date') || today()
+    });
+    toast('✅ Trainer saved!');
+    clearTrainerForm();
+    loadTrainers();
+  } catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+  finally { btn.disabled = false; }
+}
+
+async function deleteTrainer(id) {
+  if (!confirm('Delete this trainer?')) return;
+  try { await api('/trainers/'+id,'DELETE'); toast('🗑 Trainer deleted','#555'); loadTrainers(); }
+  catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+}
+
+function clearTrainerForm() {
+  ['t-name','t-phone','t-email','t-exp','t-salary'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('t-date').value = today();
+}
+
+// ═══════════════════════════════════════════════════
+//  PAYMENTS
+// ═══════════════════════════════════════════════════
+async function loadPayments(filter='All', tabEl=null, search='') {
+  currentPaymentFilter = filter;
+  if (tabEl) {
+    document.querySelectorAll('#panel-payments .inner-tab').forEach(t => t.classList.remove('active'));
+    tabEl.classList.add('active');
+  }
+  const tbody = document.getElementById('payment-tbody');
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="7"><span class="loader"></span>Loading…</td></tr>`;
+  try {
+    let qs = '';
+    if (filter !== 'All') qs += `status=${filter}&`;
+    if (search) qs += `search=${encodeURIComponent(search)}&`;
+    const data = await api('/payments?' + qs);
+    if (!data.length) { tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="e-icon">💰</div>No payments found.</div></td></tr>`; return; }
+    tbody.innerHTML = data.map((p,i) => `
+      <tr>
+        <td><div class="name-cell"><div class="avatar" style="background:${initColor(p.member_name,i)}20;color:${initColor(p.member_name,i)}">${p.member_name[0]}</div><div class="name-text">${p.member_name}</div></div></td>
+        <td>${p.paid_on||'—'}</td>
+        <td>${p.plan}</td>
+        <td>${p.method}</td>
+        <td style="font-family:'Space Mono',monospace;color:var(--success);font-weight:700">${inr(p.amount)}</td>
+        <td>${statusBadge(p.status)}</td>
+        <td><button type="button" class="btn-danger-sm" onclick="deletePayment(${p.id})">🗑</button></td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:20px">Error: ${e.message}</td></tr>`; }
+}
+
+async function loadPaymentSummary() {
+  try {
+    const s = await api('/payments/summary');
+    document.getElementById('total-paid').textContent    = inr(s.total_paid);
+    document.getElementById('total-pending').textContent = inr(s.total_pending);
+  } catch(e) {}
+}
+
+async function savePayment() {
+  const member_id = document.getElementById('p-member').value;
+  const amount    = document.getElementById('p-amount').value;
+  if (!member_id || !amount) { toast('❌ Select member & enter amount','var(--danger)'); return; }
+  const btn = document.querySelector('#form-payment .btn-primary');
+  btn.disabled = true;
+  try {
+    await api('/payments','POST',{
+      member_id, amount, plan: v('p-plan'),
+      method: v('p-method'), status: v('p-status'),
+      paid_on: v('p-date') || today()
+    });
+    toast('✅ Payment recorded!');
+    document.getElementById('p-amount').value = '';
+    document.getElementById('p-date').value = today();
+    loadPayments(currentPaymentFilter);
+    loadPaymentSummary();
+  } catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+  finally { btn.disabled = false; }
+}
+
+async function deletePayment(id) {
+  if (!confirm('Delete this payment record?')) return;
+  try { await api('/payments/'+id,'DELETE'); toast('🗑 Payment deleted','#555'); loadPayments(currentPaymentFilter); loadPaymentSummary(); }
+  catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+}
+
+async function loadMemberDropdown() {
+  const sel = document.getElementById('p-member');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Select Member</option>';
+  try {
+    const members = await api('/members?status=Active');
+    members.forEach(m => { const o = new Option(m.name, m.id); sel.appendChild(o); });
+    if (cur) sel.value = cur;
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════
+//  EQUIPMENT
+// ═══════════════════════════════════════════════════
+async function loadEquipment(search='') {
+  const grid = document.getElementById('equip-cards');
+  grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="e-icon" style="opacity:1">⏳</div>Loading…</div></div>`;
+  try {
+    const qs = search ? `search=${encodeURIComponent(search)}` : '';
+    const data = await api('/equipment?' + qs);
+    const total = data.reduce((s,e) => s+e.quantity, 0);
+    document.getElementById('equip-total').textContent = total + ' units total';
+    document.getElementById('nb-equip').textContent = data.length;
+
+    if (!data.length) { grid.innerHTML = `<div style="grid-column:1/-1"><div class="empty-state"><div class="e-icon">🏋️</div>No equipment found.</div></div>`; return; }
+    grid.innerHTML = data.map(e => `
+      <div class="instrument-card ${e.condition}">
+        <div class="instrument-name">${e.name}</div>
+        <div class="instrument-cat">${e.category} · ${e.purchased_on||''} ${e.cost ? '· '+inr(e.cost) : ''}</div>
+        <div class="instrument-meta">
+          <div>
+            <div class="instrument-count">${e.quantity} <span>units</span></div>
+            <span class="badge badge-${e.condition}">${e.condition==='good'?'Good':e.condition==='maintenance'?'Maintenance':'Out of Order'}</span>
+          </div>
+          <div style="text-align:right">
+            <div class="instrument-icon">${CAT_ICON[e.category]||'🏋️'}</div>
+            <button type="button" class="btn-danger-sm" style="margin-top:6px" onclick="deleteEquipment(${e.id})">🗑</button>
+          </div>
+        </div>
+        ${e.notes?`<div style="font-size:11px;color:var(--muted);margin-top:10px;border-top:1px solid #222;padding-top:8px">${e.notes}</div>`:''}
+      </div>`).join('');
+  } catch(e) { grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--danger)">Error: ${e.message}</div>`; }
+}
+
+async function saveEquipment() {
+  const name = document.getElementById('e-name').value.trim();
+  if (!name) { toast('❌ Equipment name required','var(--danger)'); return; }
+  const btn = document.querySelector('#form-equipment .btn-primary');
+  btn.disabled = true;
+  try {
+    await api('/equipment','POST',{
+      name, category: v('e-cat'), quantity: v('e-qty')||1,
+      cost: v('e-cost')||0, condition: v('e-cond'),
+      purchased_on: v('e-date') || today(), notes: v('e-notes')
+    });
+    toast('✅ Equipment added!');
+    clearEquipForm();
+    loadEquipment();
+  } catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+  finally { btn.disabled = false; }
+}
+
+async function deleteEquipment(id) {
+  if (!confirm('Delete this equipment?')) return;
+  try { await api('/equipment/'+id,'DELETE'); toast('🗑 Equipment removed','#555'); loadEquipment(); }
+  catch(e) { toast('❌ '+e.message,'var(--danger)'); }
+}
+
+function clearEquipForm() {
+  ['e-name','e-qty','e-cost','e-notes'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('e-qty').value = 1;
+  document.getElementById('e-date').value = today();
+}
+
+// Helper — get input value
+function v(id) { return document.getElementById(id).value; }
+
+// ── Init ───────────────────────────────────────────
+document.getElementById('m-date').value = today();
+document.getElementById('p-date').value = today();
+document.getElementById('e-date').value = today();
+document.getElementById('t-date').value = today();
+loadDashboard();
+</script>
+</body>
+</html>
